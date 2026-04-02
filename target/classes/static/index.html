@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="theme-color" content="#1a3a2a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>ContractLedger</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap');
+:root{--bg:#0f1f16;--bg2:#162b1e;--bg3:#1e3829;--card:#1a2f22;--border:#2d4a38;--accent:#4ade80;--accent2:#22c55e;--warn:#fbbf24;--danger:#f87171;--text:#e8f5ed;--text2:#9dbfa8;--text3:#6b9678;--mono:'IBM Plex Mono',monospace;--sans:'Inter',sans-serif;--display:'Syne',sans-serif;--r:12px;--th:60px;--hh:60px}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh}
+.ls{position:fixed;inset:0;z-index:500;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px}
+.ll{font-family:var(--display);font-size:36px;font-weight:800;color:var(--accent);margin-bottom:6px}
+.lsub{font-size:13px;color:var(--text2);margin-bottom:32px;text-align:center}
+.lcard{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;width:100%;max-width:360px}
+.ltitle{font-family:var(--display);font-size:18px;font-weight:700;margin-bottom:16px}
+.hdr{position:fixed;top:0;left:0;right:0;z-index:100;height:var(--hh);background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 16px}
+.htitle{font-family:var(--display);font-size:20px;font-weight:800;color:var(--accent)}
+.hproj{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.hact{display:flex;gap:8px;align-items:center}
+.ibtn{background:var(--bg3);border:1px solid var(--border);border-radius:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:16px}
+.ibtn:hover{background:var(--border);color:var(--text)}
+.uchip{background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:11px;color:var(--text2);font-family:var(--mono);cursor:pointer;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tabs{position:fixed;bottom:0;left:0;right:0;z-index:100;height:var(--th);background:var(--bg2);border-top:1px solid var(--border);display:flex}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;color:var(--text3);font-size:10px;font-family:var(--sans);font-weight:500;transition:color .15s;border:none;background:none}
+.tab.active{color:var(--accent)}
+.ti{font-size:20px;line-height:1}
+.content{margin-top:var(--hh);margin-bottom:var(--th);padding:16px}
+.page{display:none}.page.active{display:block}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:12px}
+.crow{display:flex;justify-content:space-between;align-items:center}
+.clbl{font-size:11px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.5px}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.sc{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 12px}
+.slbl{font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.sval{font-family:var(--mono);font-weight:500;font-size:18px}
+.sval.g{color:var(--accent)}.sval.w{color:var(--warn)}.sval.d{color:var(--danger)}
+.fl{font-size:11px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:block}
+.fi,.fsel,.fta{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:var(--sans);font-size:14px;outline:none;transition:border-color .15s}
+.fi:focus,.fsel:focus,.fta:focus{border-color:var(--accent)}
+.fsel option{background:var(--bg3)}.fta{min-height:70px;resize:vertical}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px}.fsec{margin-bottom:14px}
+.btn{border:none;border-radius:8px;padding:11px 16px;font-family:var(--display);font-weight:700;font-size:13px;cursor:pointer;transition:all .15s;text-transform:uppercase;letter-spacing:.3px}
+.bp{background:var(--accent2);color:#0a1f10}.bp:hover{background:var(--accent)}
+.bd{background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b}
+.bo{background:transparent;color:var(--text2);border:1px solid var(--border)}.bo:hover{border-color:var(--accent);color:var(--accent)}
+.bfull{width:100%}.bsm{padding:7px 12px;font-size:11px}.btn:disabled{opacity:.5;cursor:not-allowed}
+.badge{display:inline-block;padding:3px 8px;border-radius:20px;font-size:10px;font-family:var(--mono);font-weight:500;text-transform:uppercase}
+.bg2{background:#14532d;color:#86efac}.bb{background:#1e3a5f;color:#93c5fd}
+.li{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start}
+.lil{flex:1}.lir{text-align:right}
+.lit{font-weight:600;font-size:14px;margin-bottom:3px}.lis{font-size:12px;color:var(--text2)}
+.lia{font-family:var(--mono);font-weight:500;color:var(--warn);font-size:15px}.lia.g{color:var(--accent)}
+.lid{font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:2px}
+.sh{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.st{font-family:var(--display);font-weight:700;font-size:16px}
+.pw{background:var(--bg3);border-radius:4px;height:6px;overflow:hidden;margin:8px 0}
+.pb{height:100%;border-radius:4px;transition:width .4s}
+.pbg{background:var(--accent2)}.pbw{background:var(--warn)}.pbd{background:var(--danger)}
+.mo{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center}
+.mo.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:20px 16px 32px;max-height:90vh;overflow-y:auto}
+.mh{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px}
+.mt{font-family:var(--display);font-size:18px;font-weight:700;margin-bottom:16px}
+.rh{background:linear-gradient(135deg,#14532d,#1a3a2a);border:1px solid var(--accent2);border-radius:var(--r);padding:16px;margin-bottom:12px;text-align:center}
+.rbig{font-family:var(--display);font-size:28px;font-weight:800;color:var(--accent)}
+.rlbl{font-size:11px;color:var(--text2);font-family:var(--mono);margin-top:4px}
+.rp{color:var(--accent)}.rn{color:var(--danger)}
+.div{border:none;border-top:1px solid var(--border);margin:12px 0}
+.empty{text-align:center;padding:40px 16px;color:var(--text3)}
+.eicon{font-size:40px;margin-bottom:12px}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--accent2);color:#0a1f10;padding:10px 20px;border-radius:30px;font-family:var(--display);font-weight:700;font-size:13px;z-index:300;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.chip{display:inline-flex;align-items:center;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:12px;color:var(--text2);cursor:pointer;margin-right:6px;margin-bottom:6px;transition:all .15s}
+.chip.active{background:#14532d;border-color:var(--accent2);color:var(--accent)}
+.tbl{width:100%;border-collapse:collapse}
+.tbl td,.tbl th{padding:8px 10px;font-size:12px;border-bottom:1px solid var(--border)}
+.tbl th{font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.tbl td:last-child,.tbl th:last-child{text-align:right;font-family:var(--mono)}
+.wrow{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.wrow:last-child{border-bottom:none}
+.cdot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="ls" id="ls">
+  <div class="ll">ContractLedger</div>
+  <div class="lsub">Spring Boot + MySQL · Real-time multi-user</div>
+  <div class="lcard">
+    <div class="ltitle">Sign In</div>
+    <div class="fsec"><label class="fl">Username</label><input class="fi" id="lu" placeholder="Enter username" autocomplete="username"></div>
+    <div class="fsec"><label class="fl">Password</label><input class="fi" id="lp" type="password" placeholder="Enter password" autocomplete="current-password"></div>
+    <div id="lerr" style="color:var(--danger);font-size:12px;margin-bottom:10px;display:none"></div>
+    <button class="btn bp bfull" id="lbtn" onclick="doLogin()">Sign In</button>
+    <div style="margin-top:12px;font-size:11px;color:var(--text3);text-align:center">All users share same MySQL database · No sync needed</div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<div class="hdr" id="hdr" style="display:none">
+  <div><div class="htitle">ContractLedger</div><div class="hproj" id="hproj">No project selected</div></div>
+  <div class="hact">
+    <div class="ibtn" onclick="openProjModal()" title="Projects">🏗️</div>
+    <div class="uchip" id="uchip" onclick="doLogout()">user ▾</div>
+  </div>
+</div>
+
+<div class="content" id="mc" style="display:none">
+  <!-- DASHBOARD -->
+  <div class="page active" id="page-dashboard">
+    <div id="noproj" class="card" style="text-align:center;border-color:var(--warn);background:#1c1a0a;display:none">
+      <div style="font-size:24px;margin-bottom:6px">⚠️</div>
+      <div style="font-weight:600;margin-bottom:4px">No Project Selected</div>
+      <div style="font-size:12px;color:var(--text2)">Tap 🏗️ to create or select a project</div>
+    </div>
+    <div id="dc">
+      <div class="sgrid">
+        <div class="sc"><div class="slbl">Total Invested</div><div class="sval g" id="di">₹0</div></div>
+        <div class="sc"><div class="slbl">Total Expenses</div><div class="sval w" id="de">₹0</div></div>
+        <div class="sc"><div class="slbl">Balance</div><div class="sval" id="db">₹0</div></div>
+        <div class="sc"><div class="slbl">Workers</div><div class="sval" id="dw">0</div></div>
+      </div>
+      <div class="card">
+        <div class="crow" style="margin-bottom:8px"><div class="clbl">Budget Usage</div><div style="font-family:var(--mono);font-size:12px" id="dpct">0%</div></div>
+        <div class="pw"><div class="pb pbg" id="dbar" style="width:0%"></div></div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px" id="dbtxt"></div>
+      </div>
+      <div class="sh"><div class="st">Recent Expenses</div><div style="font-size:11px;color:var(--text3)" id="dcnt">0 entries</div></div>
+      <div id="drec"></div>
+    </div>
+  </div>
+
+  <!-- INVESTORS -->
+  <div class="page" id="page-investors">
+    <div class="sh"><div class="st">Investors</div><button class="btn bp bsm" onclick="openModal('mi')">+ Add</button></div>
+    <div class="sgrid">
+      <div class="sc"><div class="slbl">Total Capital</div><div class="sval g" id="it">₹0</div></div>
+      <div class="sc"><div class="slbl">Count</div><div class="sval" id="ic">0</div></div>
+    </div>
+    <div id="invlist"></div>
+  </div>
+
+  <!-- EXPENSES -->
+  <div class="page" id="page-expenses">
+    <div class="sh"><div class="st">Expenses</div><button class="btn bp bsm" onclick="openModal('me')">+ Add</button></div>
+    <div style="margin-bottom:12px;overflow-x:auto;white-space:nowrap;padding-bottom:4px">
+      <span class="chip active" onclick="fexp('all')" id="fa">All</span>
+      <span class="chip" onclick="fexp('MATERIAL')" id="fm">Material</span>
+      <span class="chip" onclick="fexp('LABOR')" id="fl2">Labor</span>
+      <span class="chip" onclick="fexp('MACHINERY')" id="fma">Machinery</span>
+      <span class="chip" onclick="fexp('TRANSPORT')" id="ft">Transport</span>
+      <span class="chip" onclick="fexp('OTHER')" id="fo">Other</span>
+    </div>
+    <div id="explist"></div>
+  </div>
+
+  <!-- WORKERS -->
+  <div class="page" id="page-workers">
+    <div class="sh"><div class="st">Workers & Wages</div><button class="btn bp bsm" onclick="openModal('mw')">+ Add</button></div>
+    <div class="sgrid">
+      <div class="sc"><div class="slbl">Workers</div><div class="sval" id="wc2">0</div></div>
+      <div class="sc"><div class="slbl">Total Wages</div><div class="sval w" id="wt2">₹0</div></div>
+    </div>
+    <div class="sh" style="margin-top:8px"><div class="st" style="font-size:14px">Daily Attendance</div><button class="btn bo bsm" onclick="openWageModal()">Log Today</button></div>
+    <div id="wlist"></div>
+    <div class="sh" style="margin-top:16px"><div class="st" style="font-size:14px">Wage History</div></div>
+    <div id="wllist"></div>
+  </div>
+
+  <!-- REPORTS -->
+  <div class="page" id="page-reports">
+    <div class="st" style="margin-bottom:16px">Project Report</div>
+    <div class="rh"><div class="rbig" id="rn">₹0</div><div class="rlbl">NET BALANCE (INVESTED − SPENT)</div></div>
+    <div class="sgrid">
+      <div class="sc"><div class="slbl">Invested</div><div class="sval g" id="ri">₹0</div></div>
+      <div class="sc"><div class="slbl">Grand Expenses</div><div class="sval w" id="re">₹0</div></div>
+      <div class="sc"><div class="slbl">Labor Cost</div><div class="sval" id="rl">₹0</div></div>
+      <div class="sc"><div class="slbl">Material Cost</div><div class="sval" id="rm">₹0</div></div>
+    </div>
+    <div class="card"><div class="clbl" style="margin-bottom:10px">Expense Breakdown</div><div id="rb"></div></div>
+    <div class="card"><div class="clbl" style="margin-bottom:10px">Investor Shares</div><table class="tbl"><thead><tr><th>Name</th><th>Amount</th><th>Share</th></tr></thead><tbody id="rit"></tbody></table></div>
+    <div class="card"><div class="clbl" style="margin-bottom:10px">Monthly Summary</div><div id="rmo"></div></div>
+    <div style="margin-top:16px;display:flex;gap:10px">
+      <button class="btn bp bfull" onclick="exportPDF()">📄 PDF Report</button>
+      <button class="btn bo bfull" onclick="exportCSV()">📊 CSV Export</button>
+    </div>
+  </div>
+</div>
+
+<div class="tabs" id="tabs" style="display:none">
+  <button class="tab active" onclick="showPage('dashboard',this)"><span class="ti">📊</span>Dashboard</button>
+  <button class="tab" onclick="showPage('investors',this)"><span class="ti">💰</span>Investors</button>
+  <button class="tab" onclick="showPage('expenses',this)"><span class="ti">📋</span>Expenses</button>
+  <button class="tab" onclick="showPage('workers',this)"><span class="ti">👷</span>Workers</button>
+  <button class="tab" onclick="showPage('reports',this)"><span class="ti">📈</span>Reports</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- MODALS -->
+<div class="mo" id="mp"><div class="modal"><div class="mh"></div><div class="mt">Projects</div>
+  <div class="fsec"><label class="fl">Project Name</label><input class="fi" id="pn" placeholder="e.g. Pungunuru Canal Phase-1"></div>
+  <div class="frow" style="margin-bottom:12px">
+    <div><label class="fl">Type</label><select class="fsel" id="ptype"><option value="CANAL">Canal</option><option value="ROAD">Road</option><option value="BUILDING">Building</option><option value="BRIDGE">Bridge</option><option value="OTHER">Other</option></select></div>
+    <div><label class="fl">Location</label><input class="fi" id="ploc" placeholder="Village / Mandal"></div>
+  </div>
+  <button class="btn bp bfull" style="margin-bottom:16px" onclick="createProject()">Create Project</button>
+  <hr class="div"><div class="clbl" style="margin-bottom:8px">Select Active Project</div>
+  <div id="projlist"></div>
+  <button class="btn bo bfull" style="margin-top:12px" onclick="closeModal('mp')">Close</button>
+</div></div>
+
+<div class="mo" id="mi"><div class="modal"><div class="mh"></div><div class="mt">Add Investor</div>
+  <div class="fsec"><label class="fl">Full Name</label><input class="fi" id="iname" placeholder="Investor name"></div>
+  <div class="fsec"><label class="fl">Phone</label><input class="fi" id="iphone" placeholder="Mobile number" type="tel"></div>
+  <div class="fsec"><label class="fl">Amount (₹)</label><input class="fi" id="iamt" placeholder="0" type="number"></div>
+  <div class="fsec"><label class="fl">Date</label><input class="fi" id="idate" type="date"></div>
+  <div class="fsec"><label class="fl">Notes</label><textarea class="fta" id="inotes" placeholder="Remarks..."></textarea></div>
+  <div style="display:flex;gap:10px"><button class="btn bo" style="flex:1" onclick="closeModal('mi')">Cancel</button><button class="btn bp" style="flex:2" onclick="saveInvestor()">Save</button></div>
+</div></div>
+
+<div class="mo" id="me"><div class="modal"><div class="mh"></div><div class="mt">Add Expense</div>
+  <div class="fsec"><label class="fl">Description</label><input class="fi" id="edesc" placeholder="What was purchased/spent"></div>
+  <div class="frow">
+    <div><label class="fl">Amount (₹)</label><input class="fi" id="eamt" placeholder="0" type="number"></div>
+    <div><label class="fl">Category</label><select class="fsel" id="ecat"><option value="MATERIAL">Material</option><option value="LABOR">Labor</option><option value="MACHINERY">Machinery</option><option value="TRANSPORT">Transport</option><option value="OTHER">Other</option></select></div>
+  </div>
+  <div class="frow" style="margin-top:10px">
+    <div><label class="fl">Date</label><input class="fi" id="edate" type="date"></div>
+    <div><label class="fl">Paid To</label><input class="fi" id="epaid" placeholder="Vendor / Person"></div>
+  </div>
+  <div class="fsec" style="margin-top:10px"><label class="fl">Bill No.</label><input class="fi" id="ebill" placeholder="Bill number"></div>
+  <div class="fsec"><label class="fl">Notes</label><textarea class="fta" id="enotes" placeholder="Remarks..."></textarea></div>
+  <div style="display:flex;gap:10px"><button class="btn bo" style="flex:1" onclick="closeModal('me')">Cancel</button><button class="btn bp" style="flex:2" onclick="saveExpense()">Save</button></div>
+</div></div>
+
+<div class="mo" id="mw"><div class="modal"><div class="mh"></div><div class="mt">Add Worker</div>
+  <div class="fsec"><label class="fl">Worker Name</label><input class="fi" id="wname" placeholder="Full name"></div>
+  <div class="frow">
+    <div><label class="fl">Role</label><input class="fi" id="wrole" placeholder="Mason, Helper..."></div>
+    <div><label class="fl">Daily Wage (₹)</label><input class="fi" id="wwage" placeholder="0" type="number"></div>
+  </div>
+  <div class="fsec" style="margin-top:10px"><label class="fl">Phone</label><input class="fi" id="wphone" placeholder="Mobile number" type="tel"></div>
+  <div style="display:flex;gap:10px;margin-top:10px"><button class="btn bo" style="flex:1" onclick="closeModal('mw')">Cancel</button><button class="btn bp" style="flex:2" onclick="saveWorker()">Save</button></div>
+</div></div>
+
+<div class="mo" id="mwl"><div class="modal"><div class="mh"></div><div class="mt">Log Daily Wages</div>
+  <div class="fsec"><label class="fl">Date</label><input class="fi" id="wldate" type="date"></div>
+  <div class="clbl" style="margin-bottom:8px">Workers Present Today</div>
+  <div id="wchk"></div>
+  <div class="fsec" style="margin-top:12px"><label class="fl">Notes</label><input class="fi" id="wlnotes" placeholder="Any remarks..."></div>
+  <div style="display:flex;gap:10px;margin-top:12px"><button class="btn bo" style="flex:1" onclick="closeModal('mwl')">Cancel</button><button class="btn bp" style="flex:2" onclick="saveWageLog()">Save Wages</button></div>
+</div></div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────
+const API = window.location.origin + '/api';
+
+// ── STATE ────────────────────────────────────────────────
+let TK = localStorage.getItem('cl_tk');
+let CU = JSON.parse(localStorage.getItem('cl_cu')||'null');
+let AP = JSON.parse(localStorage.getItem('cl_ap')||'null');
+let WC = [];
+let EF = 'all';
+
+const f=n=>'₹'+Number(n||0).toLocaleString('en-IN');
+const fd=d=>{if(!d)return'';try{return new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'})}catch(e){return d}};
+const td=()=>new Date().toISOString().split('T')[0];
+const CC={MATERIAL:'#60a5fa',LABOR:'#4ade80',MACHINERY:'#fbbf24',TRANSPORT:'#f87171',OTHER:'#c084fc'};
+const CI={MATERIAL:'🪨',LABOR:'👷',MACHINERY:'⚙️',TRANSPORT:'🚛',OTHER:'📌'};
+
+function toast(msg,dur=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur)}
+
+async function api(method,path,body){
+  try{
+    const r=await fetch(API+path,{method,headers:{'Content-Type':'application/json',...(TK?{Authorization:'Bearer '+TK}:{})},body:body?JSON.stringify(body):undefined});
+    if(r.status===401){doLogout();return null;}
+    if(!r.ok){const t=await r.text();toast('❌ '+(t||'Error '+r.status));return null;}
+    const t=await r.text();return t?JSON.parse(t):true;
+  }catch(e){toast('❌ Cannot reach server — is Spring Boot running?');console.error(e);return null;}
+}
+
+async function doLogin(){
+  const u=document.getElementById('lu').value.trim(),
+  p=document.getElementById('lp').value;
+  if(!u||!p){showErr('Enter username and password');return;}
+  const btn=document.getElementById('lbtn');btn.textContent='Signing in...';btn.disabled=true;
+  const res=await api('POST','/auth/login',{username:u,password:p});
+  btn.textContent='Sign In';btn.disabled=false;
+  if(!res){showErr('Invalid username or password');return;}
+  TK=res.token;CU={username:res.username,fullName:res.fullName,role:res.role};
+  localStorage.setItem('cl_tk',TK);localStorage.setItem('cl_cu',JSON.stringify(CU));
+  showApp();
+}
+function showErr(m){const e=document.getElementById('lerr');e.textContent=m;e.style.display='block';}
+function doLogout(){
+  if(!confirm('Sign out?'))return;
+  TK=null;CU=null;AP=null;
+  ['cl_tk','cl_cu','cl_ap'].forEach(k=>localStorage.removeItem(k));
+  document.getElementById('ls').style.display='flex';
+  ['hdr','mc','tabs'].forEach(id=>document.getElementById(id).style.display='none');
+}
+function showApp(){
+  document.getElementById('ls').style.display='none';
+  document.getElementById('hdr').style.display='flex';
+  document.getElementById('mc').style.display='block';
+  document.getElementById('tabs').style.display='flex';
+  document.getElementById('lerr').style.display='none';
+  document.getElementById('uchip').textContent=(CU?.fullName||CU?.username||'user')+' ▾';
+  loadProjects();
+}
+
+function showPage(n,tab){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+n).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  if(tab)tab.classList.add('active');
+  if(AP)rp(n);
+}
+function rp(n){switch(n){case'dashboard':loadDash();break;case'investors':loadInv();break;case'expenses':loadExp();break;case'workers':loadWrk();break;case'reports':loadRep();break;}}
+function ra(){document.getElementById('hproj').textContent=AP?AP.name+' · '+(AP.type||''):'No project selected';const a=document.querySelector('.page.active');if(a&&AP)rp(a.id.replace('page-',''));}
+
+function openModal(id){document.getElementById(id).classList.add('open')}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+document.querySelectorAll('.mo').forEach(o=>o.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open')}));
+function chk(){if(!AP){toast('⚠️ Select a project first');openProjModal();return false;}return true;}
+function openProjModal(){loadProjList();openModal('mp');}
+
+async function loadProjects(){
+  const list=await api('GET','/projects')||[];
+  if(AP){const fresh=list.find(p=>p.id===AP.id);if(fresh){AP=fresh;localStorage.setItem('cl_ap',JSON.stringify(AP));}}
+  else if(list.length>0){AP=list[0];localStorage.setItem('cl_ap',JSON.stringify(AP));}
+  ra();
+}
+async function loadProjList(){
+  const list=await api('GET','/projects')||[];
+  const el=document.getElementById('projlist');
+  if(!list.length){el.innerHTML='<div style="font-size:12px;color:var(--text3)">No projects yet</div>';return;}
+  el.innerHTML=list.map(p=>`<div class="li" style="${p.id===AP?.id?'border-color:var(--accent2);background:#0d1f14':''}">
+    <div class="lil" onclick="selP(${p.id})" style="cursor:pointer">
+      <div class="lit">${p.name} ${p.id===AP?.id?'<span class="badge bg2">Active</span>':''}</div>
+      <div class="lis">${p.type||''} · ${p.location||'—'}</div>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button class="btn bo bsm" onclick="selP(${p.id})">Select</button>
+      <button class="btn bd bsm" onclick="delP(${p.id})">🗑️</button>
+    </div></div>`).join('');
+}
+async function createProject(){
+  const name=document.getElementById('pn').value.trim();if(!name){toast('Enter project name');return;}
+  const res=await api('POST','/projects',{name,type:document.getElementById('ptype').value,location:document.getElementById('ploc').value.trim()});
+  if(res){document.getElementById('pn').value='';document.getElementById('ploc').value='';AP=res;localStorage.setItem('cl_ap',JSON.stringify(res));loadProjList();ra();closeModal('mp');toast('✅ Project created');}
+}
+async function selP(id){const list=await api('GET','/projects')||[];const p=list.find(x=>x.id===id);if(p){AP=p;localStorage.setItem('cl_ap',JSON.stringify(p));ra();closeModal('mp');}}
+async function delP(id){if(!confirm('Delete project and ALL data?'))return;await api('DELETE','/projects/'+id);if(AP?.id===id){AP=null;localStorage.removeItem('cl_ap');}loadProjList();loadProjects();toast('Deleted');}
+
+async function loadDash(){
+  document.getElementById('noproj').style.display=AP?'none':'block';
+  document.getElementById('dc').style.display=AP?'block':'none';
+  if(!AP)return;
+  const p=await api('GET','/projects/'+AP.id);if(!p)return;
+  const grand=Number(p.grandExpenses||0);
+  document.getElementById('di').textContent=f(p.totalInvested);
+  document.getElementById('de').textContent=f(grand);
+  const bd=document.getElementById('db');bd.textContent=f(p.balance);bd.className='sval '+(p.balance>=0?'g':'d');
+  WC=await api('GET','/projects/'+AP.id+'/workers')||[];
+  document.getElementById('dw').textContent=WC.length;
+  const pct=p.totalInvested>0?Math.min(100,Math.round(grand/p.totalInvested*100)):0;
+  document.getElementById('dpct').textContent=pct+'%';
+  const bar=document.getElementById('dbar');bar.style.width=pct+'%';bar.className='pb '+(pct<60?'pbg':pct<85?'pbw':'pbd');
+  document.getElementById('dbtxt').textContent=f(grand)+' of '+f(p.totalInvested);
+  const exps=await api('GET','/projects/'+AP.id+'/expenses')||[];
+  document.getElementById('dcnt').textContent=exps.length+' entries';
+  document.getElementById('drec').innerHTML=exps.slice(0,5).map(e=>`<div class="li"><div class="lil">
+    <div class="lit">${CI[e.category]||'📌'} ${e.description}</div>
+    <div class="lis">${e.paidTo||''} · <span class="badge bb">${e.category}</span></div>
+  </div><div class="lir"><div class="lia">${f(e.amount)}</div><div class="lid">${fd(e.expenseDate)}</div></div></div>`).join('')||
+  '<div class="empty"><div class="eicon">📭</div><div style="font-size:13px">No expenses yet</div></div>';
+}
+
+async function loadInv(){
+  if(!chk())return;
+  const list=await api('GET','/projects/'+AP.id+'/investors')||[];
+  const total=list.reduce((a,b)=>a+(Number(b.amount)||0),0);
+  document.getElementById('it').textContent=f(total);document.getElementById('ic').textContent=list.length;
+  document.getElementById('invlist').innerHTML=list.length?list.map(i=>`<div class="li"><div class="lil">
+    <div class="lit">${i.name}</div><div class="lis">${i.phone||'—'} · ${fd(i.investmentDate)}</div>
+    <div class="pw" style="width:100px"><div class="pb pbg" style="width:${i.sharePercent||0}%"></div></div>
+    <div style="font-size:10px;color:var(--text3)">${i.sharePercent||0}% share</div>
+  </div><div class="lir"><div class="lia g">${f(i.amount)}</div><div class="lid">${i.notes||''}</div>
+  <button class="btn bd bsm" style="margin-top:6px" onclick="delInv(${i.id})">🗑️</button></div></div>`).join('')
+  :'<div class="empty"><div class="eicon">💰</div><div style="font-size:13px">No investors yet</div></div>';
+}
+async function saveInvestor(){
+  if(!chk())return;
+  const name=document.getElementById('iname').value.trim(),amt=parseFloat(document.getElementById('iamt').value)||0;
+  if(!name||!amt){toast('Enter name and amount');return;}
+  const res=await api('POST','/projects/'+AP.id+'/investors',{name,phone:document.getElementById('iphone').value,amount:amt,investmentDate:document.getElementById('idate').value,notes:document.getElementById('inotes').value});
+  if(res){closeModal('mi');['iname','iphone','iamt','inotes'].forEach(i=>document.getElementById(i).value='');loadInv();toast('✅ Investor saved');}
+}
+async function delInv(id){if(!confirm('Delete?'))return;await api('DELETE','/projects/'+AP.id+'/investors/'+id);loadInv();}
+
+async function loadExp(){
+  if(!chk())return;
+  const url=EF==='all'?'/projects/'+AP.id+'/expenses':'/projects/'+AP.id+'/expenses?category='+EF;
+  const list=await api('GET',url)||[];
+  const total=list.reduce((a,b)=>a+(Number(b.amount)||0),0);
+  document.getElementById('explist').innerHTML=list.length
+    ?`<div class="card" style="margin-bottom:10px;padding:10px 14px"><div class="crow"><div class="clbl">${list.length} items</div><div style="font-family:var(--mono);font-weight:500;color:var(--warn)">${f(total)}</div></div></div>`
+    +list.map(e=>`<div class="li"><div class="lil">
+    <div class="lit"><span class="cdot" style="background:${CC[e.category]||'#888'}"></span>${e.description}</div>
+    <div class="lis">${e.paidTo||'—'} · Bill: ${e.billNumber||'—'}</div>
+    <div style="margin-top:4px"><span class="badge bb">${e.category}</span> <span style="font-size:10px;color:var(--text3)">by ${e.createdBy||''}</span></div>
+  </div><div class="lir"><div class="lia">${f(e.amount)}</div><div class="lid">${fd(e.expenseDate)}</div>
+  <button class="btn bd bsm" style="margin-top:6px" onclick="delExp(${e.id})">🗑️</button></div></div>`).join('')
+    :'<div class="empty"><div class="eicon">📭</div><div style="font-size:13px">No expenses</div></div>';
+}
+function fexp(cat){EF=cat;['fa','fm','fl2','fma','ft','fo'].forEach(id=>document.getElementById(id).classList.remove('active'));const m={all:'fa',MATERIAL:'fm',LABOR:'fl2',MACHINERY:'fma',TRANSPORT:'ft',OTHER:'fo'};document.getElementById(m[cat]).classList.add('active');loadExp();}
+async function saveExpense(){
+  if(!chk())return;
+  const desc=document.getElementById('edesc').value.trim(),amt=parseFloat(document.getElementById('eamt').value)||0;
+  if(!desc||!amt){toast('Enter description and amount');return;}
+  const res=await api('POST','/projects/'+AP.id+'/expenses',{description:desc,amount:amt,category:document.getElementById('ecat').value,expenseDate:document.getElementById('edate').value,paidTo:document.getElementById('epaid').value,billNumber:document.getElementById('ebill').value,notes:document.getElementById('enotes').value});
+  if(res){closeModal('me');['edesc','eamt','epaid','ebill','enotes'].forEach(i=>document.getElementById(i).value='');loadExp();toast('✅ Expense saved');}
+}
+async function delExp(id){if(!confirm('Delete?'))return;await api('DELETE','/projects/'+AP.id+'/expenses/'+id);loadExp();}
+
+async function loadWrk(){
+  if(!chk())return;
+  WC=await api('GET','/projects/'+AP.id+'/workers')||[];
+  const wl=await api('GET','/projects/'+AP.id+'/wagelogs')||[];
+  const tw=wl.reduce((a,b)=>a+(Number(b.totalAmount)||0),0);
+  document.getElementById('wc2').textContent=WC.length;document.getElementById('wt2').textContent=f(tw);
+  document.getElementById('wlist').innerHTML=WC.length?WC.map(w=>`<div class="li"><div class="lil">
+    <div class="lit">👷 ${w.name}</div><div class="lis">${w.role||'Worker'} · ${w.phone||'—'}</div>
+  </div><div class="lir"><div class="lia g">${f(w.dailyWage)}/day</div>
+  <button class="btn bd bsm" style="margin-top:6px" onclick="delWrk(${w.id})">🗑️</button></div></div>`).join('')
+  :'<div class="empty"><div class="eicon">👷</div><div style="font-size:13px">No workers</div></div>';
+  document.getElementById('wllist').innerHTML=wl.length?wl.slice(0,20).map(l=>`<div class="li"><div class="lil">
+    <div class="lit">📅 ${fd(l.logDate)}</div><div class="lis">${(l.workerNames||[]).join(', ')}</div>
+    <div style="font-size:10px;color:var(--text3)">by ${l.loggedBy||''}</div>
+  </div><div class="lir"><div class="lia">${f(l.totalAmount)}</div><div class="lid">${l.workerCount} workers</div></div></div>`).join('')
+  :'<div style="font-size:12px;color:var(--text3);padding:10px 0">No wage logs yet</div>';
+}
+async function saveWorker(){
+  if(!chk())return;
+  const name=document.getElementById('wname').value.trim();if(!name){toast('Enter name');return;}
+  const res=await api('POST','/projects/'+AP.id+'/workers',{name,role:document.getElementById('wrole').value,dailyWage:parseFloat(document.getElementById('wwage').value)||0,phone:document.getElementById('wphone').value});
+  if(res){closeModal('mw');['wname','wrole','wwage','wphone'].forEach(i=>document.getElementById(i).value='');loadWrk();toast('✅ Worker added');}
+}
+async function delWrk(id){if(!confirm('Remove?'))return;await api('DELETE','/projects/'+AP.id+'/workers/'+id);loadWrk();}
+function openWageModal(){
+  if(!chk())return;
+  document.getElementById('wldate').value=td();
+  document.getElementById('wchk').innerHTML=WC.length?WC.map(w=>`<div class="wrow"><div>
+    <div style="font-weight:500">${w.name}</div><div style="font-size:11px;color:var(--text3)">${w.role||''} · ${f(w.dailyWage)}/day</div>
+  </div><label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+    <input type="checkbox" id="wc${w.id}" style="width:18px;height:18px;accent-color:var(--accent)">
+    <span style="font-family:var(--mono);font-size:13px">${f(w.dailyWage)}</span></label></div>`).join('')
+  :'<div style="font-size:12px;color:var(--text3)">No workers added</div>';
+  openModal('mwl');
+}
+async function saveWageLog(){
+  if(!chk())return;
+  const workerIds=WC.filter(w=>document.getElementById('wc'+w.id)?.checked).map(w=>w.id);
+  if(!workerIds.length){toast('Select at least one worker');return;}
+  const res=await api('POST','/projects/'+AP.id+'/wagelogs',{logDate:document.getElementById('wldate').value,workerIds,notes:document.getElementById('wlnotes').value});
+  if(res){closeModal('mwl');loadWrk();toast('✅ Wages logged: '+f(res.totalAmount));}
+}
+
+async function loadRep(){
+  if(!chk())return;
+  const r=await api('GET','/projects/'+AP.id+'/report');if(!r)return;
+  document.getElementById('rn').textContent=f(r.netBalance);
+  document.getElementById('rn').className='rbig '+(r.netBalance>=0?'rp':'rn');
+  document.getElementById('ri').textContent=f(r.totalInvested);
+  document.getElementById('re').textContent=f(r.grandExpenses);
+  document.getElementById('rl').textContent=f(r.laborCost);
+  document.getElementById('rm').textContent=f(r.materialCost);
+  const cats=[['MATERIAL',r.materialCost],['LABOR',r.laborCost],['MACHINERY',r.machineryCost],['TRANSPORT',r.transportCost],['OTHER',r.otherCost]];
+  document.getElementById('rb').innerHTML=cats.map(([c,v])=>{const pct=r.grandExpenses>0?Math.round(v/r.grandExpenses*100):0;return`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><div style="font-size:12px;color:var(--text2)">${CI[c]} ${c}</div><div style="font-family:var(--mono);font-size:12px">${f(v)} <span style="color:var(--text3)">(${pct}%)</span></div></div><div class="pw"><div class="pb" style="width:${pct}%;background:${CC[c]}"></div></div></div>`;}).join('');
+  document.getElementById('rit').innerHTML=(r.investors||[]).map(i=>`<tr><td>${i.name}</td><td>${f(i.amount)}</td><td>${i.sharePercent||0}%</td></tr>`).join('');
+  document.getElementById('rmo').innerHTML=(r.monthlySummary||[]).length?'<table class="tbl"><thead><tr><th>Month</th><th>Total</th></tr></thead><tbody>'+(r.monthlySummary||[]).map(m=>`<tr><td>${m.month}</td><td>${f(m.amount)}</td></tr>`).join('')+'</tbody></table>':'<div style="font-size:12px;color:var(--text3)">No data yet</div>';
+}
+
+async function exportCSV(){
+  if(!chk())return;
+  const [inv,exp,wl]=await Promise.all([api('GET','/projects/'+AP.id+'/investors'),api('GET','/projects/'+AP.id+'/expenses'),api('GET','/projects/'+AP.id+'/wagelogs')]);
+  let csv='INVESTORS\nName,Amount,Date,Phone,Notes\n';
+  (inv||[]).forEach(i=>{csv+=`${i.name},${i.amount},${i.investmentDate||''},${i.phone||''},${i.notes||''}\n`;});
+  csv+='\nEXPENSES\nDate,Description,Amount,Category,PaidTo,BillNo,AddedBy\n';
+  (exp||[]).forEach(e=>{csv+=`${e.expenseDate},"${e.description}",${e.amount},${e.category},${e.paidTo||''},${e.billNumber||''},${e.createdBy||''}\n`;});
+  csv+='\nWAGE LOGS\nDate,Workers,Total,LoggedBy\n';
+  (wl||[]).forEach(l=>{csv+=`${l.logDate},"${(l.workerNames||[]).join('; ')}",${l.totalAmount},${l.loggedBy||''}\n`;});
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`${AP.name}_${td()}.csv`;a.click();toast('✅ CSV exported');
+}
+async function exportPDF(){
+  if(!chk())return;
+  const [r,inv,exp,wl]=await Promise.all([api('GET','/projects/'+AP.id+'/report'),api('GET','/projects/'+AP.id+'/investors'),api('GET','/projects/'+AP.id+'/expenses'),api('GET','/projects/'+AP.id+'/wagelogs')]);
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${AP.name}</title><style>body{font-family:Arial,sans-serif;max-width:900px;margin:40px auto;padding:20px}h1,h2{color:#1a3a2a}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{border:1px solid #ddd;padding:8px 12px;font-size:13px}th{background:#f5f5f5}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:20px 0}.box{border:1px solid #ddd;border-radius:8px;padding:14px;text-align:center}.v{font-size:22px;font-weight:700}.g{color:#16a34a}.r{color:#dc2626}.w{color:#d97706}@media print{body{margin:0}}</style></head><body>
+<h1>📊 ${AP.name} — Report</h1><p style="color:#666;font-size:13px">Generated: ${new Date().toLocaleString()} · Type: ${AP.type||''} · Location: ${AP.location||''}</p>
+<div class="grid"><div class="box"><div>Total Invested</div><div class="v g">₹${Number(r.totalInvested).toLocaleString('en-IN')}</div></div><div class="box"><div>Total Expenses</div><div class="v w">₹${Number(r.grandExpenses).toLocaleString('en-IN')}</div></div><div class="box"><div>Net Balance</div><div class="v ${r.netBalance>=0?'g':'r'}">₹${Number(r.netBalance).toLocaleString('en-IN')}</div></div></div>
+<h2>Investors</h2><table><tr><th>Name</th><th>Phone</th><th>Amount</th><th>Date</th><th>Share%</th></tr>${(inv||[]).map(i=>`<tr><td>${i.name}</td><td>${i.phone||'—'}</td><td>₹${Number(i.amount).toLocaleString('en-IN')}</td><td>${i.investmentDate||'—'}</td><td>${i.sharePercent||0}%</td></tr>`).join('')}</table>
+<h2>Expenses</h2><table><tr><th>Date</th><th>Description</th><th>Category</th><th>Paid To</th><th>Bill</th><th>By</th><th>Amount</th></tr>${(exp||[]).map(e=>`<tr><td>${e.expenseDate||''}</td><td>${e.description}</td><td>${e.category}</td><td>${e.paidTo||'—'}</td><td>${e.billNumber||'—'}</td><td>${e.createdBy||''}</td><td>₹${Number(e.amount).toLocaleString('en-IN')}</td></tr>`).join('')}</table>
+<h2>Wage Logs</h2><table><tr><th>Date</th><th>Workers</th><th>Total</th><th>By</th></tr>${(wl||[]).map(l=>`<tr><td>${l.logDate}</td><td>${(l.workerNames||[]).join(', ')}</td><td>₹${Number(l.totalAmount).toLocaleString('en-IN')}</td><td>${l.loggedBy||''}</td></tr>`).join('')}</table>
+<script>window.onload=function(){window.print()}<\/script></body></html>`;
+  window.open(URL.createObjectURL(new Blob([html],{type:'text/html'})),'_blank');
+}
+
+// ── INIT ──────────────────────────────────────────────────
+document.getElementById('edate').value=td();
+document.getElementById('idate').value=td();
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('ls').style.display!=='none')doLogin();});
+if(TK&&CU){showApp();}else{TK=null;localStorage.removeItem('cl_tk');localStorage.removeItem('cl_cu');}
+</script>
+</body>
+</html>
