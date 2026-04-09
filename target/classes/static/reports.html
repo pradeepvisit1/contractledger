@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ContractLedger · Reports</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.report-hero {
+  background: linear-gradient(135deg, #1e40af, #2563eb);
+  color: #fff; border-radius: var(--rlg); padding: 24px;
+  text-align: center; margin-bottom: 20px; box-shadow: var(--shadow-lg);
+}
+.report-hero-val { font-size: 38px; font-weight: 800; font-family: var(--mono); letter-spacing: -2px; }
+.report-hero-lbl { font-size: 12px; opacity: .8; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+.report-hero.negative { background: linear-gradient(135deg, #991b1b, #dc2626); }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hlogo">
+    <div class="hlogo-icon">🏗️</div>
+    <div>
+      <div class="hlogo-text">ContractLedger</div>
+      <div class="hproj" id="hproj">No project selected</div>
+    </div>
+  </div>
+  <div class="hact">
+    <button class="ibtn" onclick="openModal('proj-modal')" title="Switch Project">🏗️</button>
+    <div class="uchip" id="uchip" onclick="doLogout()"></div>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar"></nav>
+  <main class="main">
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
+      <div>
+        <div class="page-title">📈 Project Report</div>
+        <div class="page-sub">Full financial summary and breakdown</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="exportCSV()">📊 Export CSV</button>
+        <button class="btn btn-primary" onclick="exportPDF()">📄 PDF Report</button>
+      </div>
+    </div>
+
+    <div id="r-content">
+      <div class="empty"><div class="empty-icon">📊</div><div class="empty-title">Select a project</div><div class="empty-sub">Choose a project to view its financial report</div></div>
+    </div>
+  </main>
+</div>
+
+<div class="mob-tabs"><div class="mob-tabs-inner" id="mob-tabs-inner"></div></div>
+
+<!-- Project Modal -->
+<div class="mo" id="proj-modal">
+  <div class="modal">
+    <div class="modal-title">🏗️ Switch Project</div>
+    <div id="proj-list-modal"></div>
+    <button class="btn btn-ghost btn-full" style="margin-top:12px" onclick="closeModal('proj-modal')">Close</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="app.js"></script>
+<script>
+if (!requireAuth()) {}
+let reportData = null;
+
+window.addEventListener('DOMContentLoaded', async () => {
+  renderHeader('reports');
+  loadProjectsIntoModal();
+  if (AP) await loadReport();
+});
+
+async function loadReport() {
+  if (!checkProject()) return;
+  const r = await api('GET', '/projects/' + AP.id + '/report');
+  if (!r) return;
+  reportData = r;
+
+  const positive = r.netBalance >= 0;
+  document.getElementById('r-content').innerHTML = `
+    <!-- Hero balance -->
+    <div class="report-hero ${positive ? '' : 'negative'}">
+      <div class="report-hero-val">${fmt(r.netBalance)}</div>
+      <div class="report-hero-lbl">Net Balance (Invested − Spent)</div>
+    </div>
+
+    <!-- Key stats -->
+    <div class="sgrid">
+      <div class="stat-card green">
+        <div class="stat-lbl">Total Invested</div>
+        <div class="stat-val green">${fmt(r.totalInvested)}</div>
+      </div>
+      <div class="stat-card warn">
+        <div class="stat-lbl">Grand Expenses</div>
+        <div class="stat-val warn">${fmt(r.grandExpenses)}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-lbl">Direct Expenses</div>
+        <div class="stat-val blue">${fmt(r.totalExpenses)}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-lbl">Total Wages</div>
+        <div class="stat-val">${fmt(r.totalWages)}</div>
+      </div>
+    </div>
+
+    <!-- Expense breakdown -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">Expense Breakdown by Category</div></div>
+      ${[
+        ['MATERIAL',  '🪨', r.materialCost],
+        ['LABOR',     '👷', r.laborCost],
+        ['MACHINERY', '⚙️', r.machineryCost],
+        ['TRANSPORT', '🚛', r.transportCost],
+        ['OTHER',     '📌', r.otherCost],
+      ].map(([cat, icon, val]) => {
+        const pct = r.grandExpenses > 0 ? Math.round(Number(val) / Number(r.grandExpenses) * 100) : 0;
+        return `<div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+            <div style="font-size:13px;font-weight:600;color:var(--text)">${icon} ${cat}</div>
+            <div style="font-family:var(--mono);font-size:13px;font-weight:700">${fmt(val)} <span style="color:var(--text3);font-weight:400">(${pct}%)</span></div>
+          </div>
+          <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%;background:${CAT_COLOR[cat]}"></div></div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- Investors -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">Investor Shares</div></div>
+      ${r.investors && r.investors.length
+        ? `<table class="tbl">
+            <thead><tr><th>Investor</th><th>Phone</th><th>Date</th><th class="num">Amount</th><th class="num">Share %</th></tr></thead>
+            <tbody>
+              ${r.investors.map(i => `<tr>
+                <td><strong>${i.name}</strong></td>
+                <td>${i.phone || '—'}</td>
+                <td>${fmtD(i.investmentDate)}</td>
+                <td class="num" style="color:var(--success);font-weight:700">${fmt(i.amount)}</td>
+                <td class="num"><span class="badge badge-blue">${i.sharePercent || 0}%</span></td>
+              </tr>`).join('')}
+            </tbody>
+          </table>`
+        : '<div class="empty" style="padding:20px"><div class="empty-sub">No investors recorded</div></div>'}
+    </div>
+
+    <!-- Monthly summary -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">Monthly Expense Summary</div></div>
+      ${r.monthlySummary && r.monthlySummary.length
+        ? `<table class="tbl">
+            <thead><tr><th>Month</th><th class="num">Total Expenses</th></tr></thead>
+            <tbody>
+              ${r.monthlySummary.map(m => `<tr>
+                <td style="font-family:var(--mono);font-weight:600">${m.month}</td>
+                <td class="num" style="color:var(--warn);font-weight:700">${fmt(m.amount)}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>`
+        : '<div class="empty" style="padding:20px"><div class="empty-sub">No monthly data yet</div></div>'}
+    </div>
+  `;
+}
+
+async function exportCSV() {
+  if (!checkProject()) return;
+  const [inv, exp, wl] = await Promise.all([
+    api('GET', '/projects/' + AP.id + '/investors'),
+    api('GET', '/projects/' + AP.id + '/expenses'),
+    api('GET', '/projects/' + AP.id + '/wagelogs')
+  ]);
+  let csv = 'INVESTORS\nName,Amount,Date,Phone,Notes\n';
+  (inv || []).forEach(i => { csv += `${i.name},${i.amount},${i.investmentDate || ''},${i.phone || ''},${i.notes || ''}\n`; });
+  csv += '\nEXPENSES\nDate,Description,Amount,Category,PaidTo,BillNo,AddedBy\n';
+  (exp || []).forEach(e => { csv += `${e.expenseDate},"${e.description}",${e.amount},${e.category},${e.paidTo || ''},${e.billNumber || ''},${e.createdBy || ''}\n`; });
+  csv += '\nWAGE LOGS\nDate,Workers,Total,LoggedBy\n';
+  (wl || []).forEach(l => { csv += `${l.logDate},"${(l.workerNames || []).join('; ')}",${l.totalAmount},${l.loggedBy || ''}\n`; });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = `${AP.name}_${today()}.csv`;
+  a.click();
+  toast('✅ CSV exported', 'success');
+}
+
+async function exportPDF() {
+  if (!checkProject()) return;
+  const [inv, exp, wl] = await Promise.all([
+    api('GET', '/projects/' + AP.id + '/investors'),
+    api('GET', '/projects/' + AP.id + '/expenses'),
+    api('GET', '/projects/' + AP.id + '/wagelogs')
+  ]);
+  const r = reportData;
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${AP.name}</title>
+  <style>
+    body{font-family:Arial,sans-serif;max-width:960px;margin:40px auto;padding:20px;color:#0f172a}
+    h1{font-size:24px;font-weight:900;color:#1e40af;margin-bottom:4px}
+    h2{font-size:16px;font-weight:700;margin:24px 0 10px;color:#1e40af;border-bottom:2px solid #e2e8f0;padding-bottom:6px}
+    .meta{font-size:12px;color:#64748b;margin-bottom:20px}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:16px 0}
+    .box{border:1px solid #e2e8f0;border-radius:10px;padding:14px;text-align:center}
+    .box .lbl{font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+    .box .val{font-size:20px;font-weight:800}
+    .g{color:#16a34a}.r{color:#dc2626}.w{color:#d97706}.b{color:#1d4ed8}
+    table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px}
+    th{background:#f8fafc;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;padding:8px 12px;border:1px solid #e2e8f0;text-align:left}
+    td{padding:10px 12px;border:1px solid #e2e8f0}
+    tr:nth-child(even) td{background:#f8fafc}
+    @media print{body{margin:0}}
+  </style></head><body>
+  <h1>📊 ${AP.name}</h1>
+  <div class="meta">Report generated: ${new Date().toLocaleString()} · Type: ${AP.type || '—'} · Location: ${AP.location || '—'}</div>
+  <div class="grid">
+    <div class="box"><div class="lbl">Total Invested</div><div class="val g">₹${Number(r?.totalInvested || 0).toLocaleString('en-IN')}</div></div>
+    <div class="box"><div class="lbl">Grand Expenses</div><div class="val w">₹${Number(r?.grandExpenses || 0).toLocaleString('en-IN')}</div></div>
+    <div class="box"><div class="lbl">Net Balance</div><div class="val ${(r?.netBalance || 0) >= 0 ? 'g' : 'r'}">₹${Number(r?.netBalance || 0).toLocaleString('en-IN')}</div></div>
+  </div>
+  <h2>Investors</h2>
+  <table><tr><th>Name</th><th>Phone</th><th>Amount</th><th>Date</th><th>Share %</th></tr>
+  ${(inv || []).map(i => `<tr><td>${i.name}</td><td>${i.phone || '—'}</td><td class="g">₹${Number(i.amount).toLocaleString('en-IN')}</td><td>${i.investmentDate || '—'}</td><td>${i.sharePercent || 0}%</td></tr>`).join('')}
+  </table>
+  <h2>Expenses</h2>
+  <table><tr><th>Date</th><th>Description</th><th>Category</th><th>Paid To</th><th>Bill</th><th>By</th><th>Amount</th></tr>
+  ${(exp || []).map(e => `<tr><td>${e.expenseDate || ''}</td><td>${e.description}</td><td>${e.category}</td><td>${e.paidTo || '—'}</td><td>${e.billNumber || '—'}</td><td>${e.createdBy || ''}</td><td class="w">₹${Number(e.amount).toLocaleString('en-IN')}</td></tr>`).join('')}
+  </table>
+  <h2>Wage Logs</h2>
+  <table><tr><th>Date</th><th>Workers</th><th>Total</th><th>Logged By</th></tr>
+  ${(wl || []).map(l => `<tr><td>${l.logDate}</td><td>${(l.workerNames || []).join(', ')}</td><td class="w">₹${Number(l.totalAmount).toLocaleString('en-IN')}</td><td>${l.loggedBy || ''}</td></tr>`).join('')}
+  </table>
+  <script>window.onload=function(){window.print()}<\/script></body></html>`;
+  window.open(URL.createObjectURL(new Blob([html], { type: 'text/html' })), '_blank');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ContractLedger · Workers</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hlogo">
+    <div class="hlogo-icon">🏗️</div>
+    <div>
+      <div class="hlogo-text">ContractLedger</div>
+      <div class="hproj" id="hproj">No project selected</div>
+    </div>
+  </div>
+  <div class="hact">
+    <button class="ibtn" onclick="openModal('proj-modal')" title="Switch Project">🏗️</button>
+    <div class="uchip" id="uchip" onclick="doLogout()"></div>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar"></nav>
+  <main class="main">
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
+      <div>
+        <div class="page-title">👷 Workers & Wages</div>
+        <div class="page-sub">Manage workers and log daily attendance</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="openWageModal()">📅 Log Wages</button>
+        <button class="btn btn-primary" onclick="openModal('worker-modal')">+ Add Worker</button>
+      </div>
+    </div>
+
+    <div class="sgrid">
+      <div class="stat-card">
+        <div class="stat-lbl">Total Workers</div>
+        <div class="stat-val blue" id="w-count">0</div>
+      </div>
+      <div class="stat-card warn">
+        <div class="stat-lbl">Total Wages Paid</div>
+        <div class="stat-val warn" id="w-total">₹0</div>
+      </div>
+    </div>
+
+    <!-- Workers list -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <div class="card-title">Workers</div>
+      </div>
+      <div id="w-list"></div>
+    </div>
+
+    <!-- Wage history -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Wage Log History</div>
+      </div>
+      <div id="wl-list"></div>
+    </div>
+  </main>
+</div>
+
+<div class="mob-tabs"><div class="mob-tabs-inner" id="mob-tabs-inner"></div></div>
+
+<!-- Add Worker Modal -->
+<div class="mo" id="worker-modal">
+  <div class="modal">
+    <div class="modal-title">Add Worker</div>
+    <div class="form-group"><label>Worker Name *</label><input class="fi" id="w-name" placeholder="Full name"></div>
+    <div class="form-row">
+      <div><label>Role</label><input class="fi" id="w-role" placeholder="Mason, Helper, Driver..."></div>
+      <div><label>Daily Wage (₹)</label><input class="fi" id="w-wage" placeholder="0" type="number"></div>
+    </div>
+    <div class="form-group"><label>Phone</label><input class="fi" id="w-phone" placeholder="Mobile number" type="tel"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('worker-modal')">Cancel</button>
+      <button class="btn btn-primary" style="flex:2" onclick="saveWorker()">Add Worker</button>
+    </div>
+  </div>
+</div>
+
+<!-- Log Wages Modal -->
+<div class="mo" id="wage-modal">
+  <div class="modal">
+    <div class="modal-title">📅 Log Daily Wages</div>
+    <div class="form-group"><label>Date</label><input class="fi" id="wl-date" type="date"></div>
+    <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">Workers Present Today</div>
+    <div id="w-checks"></div>
+    <div class="form-group" style="margin-top:12px"><label>Notes</label><input class="fi" id="wl-notes" placeholder="Any remarks..."></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('wage-modal')">Cancel</button>
+      <button class="btn btn-success" style="flex:2" onclick="saveWageLog()">✅ Save Wages</button>
+    </div>
+  </div>
+</div>
+
+<!-- Project Modal -->
+<div class="mo" id="proj-modal">
+  <div class="modal">
+    <div class="modal-title">🏗️ Switch Project</div>
+    <div id="proj-list-modal"></div>
+    <button class="btn btn-ghost btn-full" style="margin-top:12px" onclick="closeModal('proj-modal')">Close</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="app.js"></script>
+<script>
+if (!requireAuth()) {}
+let workers = [];
+
+window.addEventListener('DOMContentLoaded', async () => {
+  renderHeader('workers');
+  loadProjectsIntoModal();
+  document.getElementById('wl-date').value = today();
+  if (AP) await loadWorkers();
+});
+
+async function loadWorkers() {
+  if (!checkProject()) return;
+  workers = await api('GET', '/projects/' + AP.id + '/workers') || [];
+  const logs  = await api('GET', '/projects/' + AP.id + '/wagelogs') || [];
+  const tw = logs.reduce((a, b) => a + Number(b.totalAmount || 0), 0);
+  document.getElementById('w-count').textContent = workers.length;
+  document.getElementById('w-total').textContent = fmt(tw);
+
+  document.getElementById('w-list').innerHTML = workers.length
+    ? workers.map(w => `
+      <div class="list-item">
+        <div class="li-left">
+          <div class="li-title">👷 ${w.name}</div>
+          <div class="li-sub">${w.role || 'Worker'} &nbsp;·&nbsp; ${w.phone || '—'}</div>
+        </div>
+        <div class="li-right">
+          <div class="li-amount green">${fmt(w.dailyWage)}<span style="font-size:11px;color:var(--text3);font-weight:400">/day</span></div>
+          ${isAdmin() ? `<button class="btn btn-danger btn-sm" onclick="deleteWorker(${w.id})">🗑️ Remove</button>` : ''}
+        </div>
+      </div>`).join('')
+    : '<div class="empty"><div class="empty-icon">👷</div><div class="empty-title">No workers added</div><div class="empty-sub">Add workers to log daily wages</div></div>';
+
+  document.getElementById('wl-list').innerHTML = logs.length
+    ? logs.slice(0, 30).map(l => `
+      <div class="list-item">
+        <div class="li-left">
+          <div class="li-title">📅 ${fmtD(l.logDate)}</div>
+          <div class="li-sub">${(l.workerNames || []).join(', ') || '—'}</div>
+          <div class="li-meta">Logged by: ${l.loggedBy || '—'}</div>
+        </div>
+        <div class="li-right">
+          <div class="li-amount warn">${fmt(l.totalAmount)}</div>
+          <div class="li-date">${l.workerCount} workers</div>
+          ${isAdmin() ? `<button class="btn btn-danger btn-sm" onclick="deleteWageLog(${l.id})">🗑️</button>` : ''}
+        </div>
+      </div>`).join('')
+    : '<div class="empty"><div class="empty-icon">📅</div><div class="empty-title">No wage logs yet</div><div class="empty-sub">Use "Log Wages" to record daily attendance</div></div>';
+}
+
+async function saveWorker() {
+  if (!checkProject()) return;
+  const name = document.getElementById('w-name').value.trim();
+  if (!name) { toast('Enter worker name', 'error'); return; }
+  const res = await api('POST', '/projects/' + AP.id + '/workers', {
+    name, role: document.getElementById('w-role').value,
+    dailyWage: parseFloat(document.getElementById('w-wage').value) || 0,
+    phone: document.getElementById('w-phone').value
+  });
+  if (res) {
+    closeModal('worker-modal');
+    ['w-name','w-role','w-wage','w-phone'].forEach(id => document.getElementById(id).value = '');
+    await loadWorkers();
+    toast('✅ Worker added', 'success');
+  }
+}
+
+async function deleteWorker(id) {
+  if (!isAdmin()) return toast('Admin only', 'error');
+  if (!confirm('Remove this worker?')) return;
+  await api('DELETE', '/projects/' + AP.id + '/workers/' + id);
+  await loadWorkers();
+  toast('Worker removed');
+}
+
+function openWageModal() {
+  if (!checkProject()) return;
+  document.getElementById('wl-date').value = today();
+  document.getElementById('w-checks').innerHTML = workers.length
+    ? workers.map(w => `
+      <div class="list-item" style="margin-bottom:6px;padding:10px 14px">
+        <div class="li-left">
+          <div class="li-title" style="font-size:13px">${w.name}</div>
+          <div class="li-sub">${w.role || 'Worker'}</div>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:0">
+          <input type="checkbox" id="wc-${w.id}" style="width:18px;height:18px;accent-color:var(--accent)">
+          <span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--success)">${fmt(w.dailyWage)}</span>
+        </label>
+      </div>`).join('')
+    : '<div style="font-size:13px;color:var(--text3);padding:10px 0">No workers added to this project</div>';
+  openModal('wage-modal');
+}
+
+async function saveWageLog() {
+  if (!checkProject()) return;
+  const workerIds = workers.filter(w => document.getElementById('wc-' + w.id)?.checked).map(w => w.id);
+  if (!workerIds.length) { toast('Select at least one worker', 'error'); return; }
+  const res = await api('POST', '/projects/' + AP.id + '/wagelogs', {
+    logDate: document.getElementById('wl-date').value,
+    workerIds,
+    notes: document.getElementById('wl-notes').value
+  });
+  if (res) {
+    closeModal('wage-modal');
+    document.getElementById('wl-notes').value = '';
+    await loadWorkers();
+    toast('✅ Wages logged: ' + fmt(res.totalAmount), 'success');
+  }
+}
+
+async function deleteWageLog(id) {
+  if (!isAdmin()) return toast('Admin only', 'error');
+  if (!confirm('Delete this wage log?')) return;
+  await api('DELETE', '/projects/' + AP.id + '/wagelogs/' + id);
+  await loadWorkers();
+  toast('Wage log deleted');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ContractLedger · Expenses</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hlogo">
+    <div class="hlogo-icon">🏗️</div>
+    <div>
+      <div class="hlogo-text">ContractLedger</div>
+      <div class="hproj" id="hproj">No project selected</div>
+    </div>
+  </div>
+  <div class="hact">
+    <button class="ibtn" onclick="openModal('proj-modal')" title="Switch Project">🏗️</button>
+    <div class="uchip" id="uchip" onclick="doLogout()"></div>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar"></nav>
+  <main class="main">
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div class="page-title">📋 Expenses</div>
+        <div class="page-sub">All project expenditures</div>
+      </div>
+      <button class="btn btn-primary" onclick="openModal('exp-modal')">+ Add Expense</button>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="sgrid">
+      <div class="stat-card warn">
+        <div class="stat-lbl">Showing Total</div>
+        <div class="stat-val warn" id="exp-total">₹0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-lbl">Count</div>
+        <div class="stat-val blue" id="exp-count">0</div>
+      </div>
+    </div>
+
+    <!-- Filter chips -->
+    <div class="chips">
+      <span class="chip active" id="f-all"      onclick="filterExp('all')">All</span>
+      <span class="chip"       id="f-MATERIAL"  onclick="filterExp('MATERIAL')">🪨 Material</span>
+      <span class="chip"       id="f-LABOR"     onclick="filterExp('LABOR')">👷 Labor</span>
+      <span class="chip"       id="f-MACHINERY" onclick="filterExp('MACHINERY')">⚙️ Machinery</span>
+      <span class="chip"       id="f-TRANSPORT" onclick="filterExp('TRANSPORT')">🚛 Transport</span>
+      <span class="chip"       id="f-OTHER"     onclick="filterExp('OTHER')">📌 Other</span>
+    </div>
+
+    <div id="exp-list"></div>
+  </main>
+</div>
+
+<div class="mob-tabs"><div class="mob-tabs-inner" id="mob-tabs-inner"></div></div>
+
+<!-- Add Expense Modal -->
+<div class="mo" id="exp-modal">
+  <div class="modal">
+    <div class="modal-title">Add Expense</div>
+    <div class="form-group"><label>Description *</label><input class="fi" id="e-desc" placeholder="What was purchased/spent"></div>
+    <div class="form-row">
+      <div><label>Amount (₹) *</label><input class="fi" id="e-amt" placeholder="0" type="number"></div>
+      <div><label>Category *</label>
+        <select class="fsel" id="e-cat">
+          <option value="MATERIAL">🪨 Material</option>
+          <option value="LABOR">👷 Labor</option>
+          <option value="MACHINERY">⚙️ Machinery</option>
+          <option value="TRANSPORT">🚛 Transport</option>
+          <option value="OTHER">📌 Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div><label>Date</label><input class="fi" id="e-date" type="date"></div>
+      <div><label>Paid To</label><input class="fi" id="e-paid" placeholder="Vendor / Person"></div>
+    </div>
+    <div class="form-group"><label>Bill Number</label><input class="fi" id="e-bill" placeholder="Bill / Receipt number"></div>
+    <div class="form-group"><label>Notes</label><textarea class="fta" id="e-notes" placeholder="Remarks..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('exp-modal')">Cancel</button>
+      <button class="btn btn-primary" style="flex:2" onclick="saveExpense()">Save Expense</button>
+    </div>
+  </div>
+</div>
+
+<!-- Project Modal -->
+<div class="mo" id="proj-modal">
+  <div class="modal">
+    <div class="modal-title">🏗️ Switch Project</div>
+    <div id="proj-list-modal"></div>
+    <button class="btn btn-ghost btn-full" style="margin-top:12px" onclick="closeModal('proj-modal')">Close</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="app.js"></script>
+<script>
+if (!requireAuth()) {}
+let activeFilter = 'all';
+
+window.addEventListener('DOMContentLoaded', async () => {
+  renderHeader('expenses');
+  loadProjectsIntoModal();
+  document.getElementById('e-date').value = today();
+  if (AP) await loadExpenses();
+});
+
+function filterExp(cat) {
+  activeFilter = cat;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  document.getElementById('f-' + cat).classList.add('active');
+  loadExpenses();
+}
+
+async function loadExpenses() {
+  if (!checkProject()) return;
+  const url = activeFilter === 'all'
+    ? '/projects/' + AP.id + '/expenses'
+    : '/projects/' + AP.id + '/expenses?category=' + activeFilter;
+  const list = await api('GET', url) || [];
+  const total = list.reduce((a, b) => a + Number(b.amount || 0), 0);
+  document.getElementById('exp-total').textContent = fmt(total);
+  document.getElementById('exp-count').textContent = list.length;
+
+  document.getElementById('exp-list').innerHTML = list.length
+    ? list.map(e => `
+      <div class="list-item">
+        <div class="li-left">
+          <div class="li-title">
+            <span class="cdot" style="background:${CAT_COLOR[e.category]}"></span>${e.description}
+          </div>
+          <div class="li-sub">
+            ${e.paidTo || '—'} &nbsp;·&nbsp; Bill: ${e.billNumber || '—'}
+          </div>
+          <div style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span class="badge ${CAT_BADGE[e.category]}">${CAT_ICON[e.category]} ${e.category}</span>
+            <span style="font-size:11px;color:var(--text3)">by ${e.createdBy || '—'}</span>
+            ${e.notes ? `<span style="font-size:11px;color:var(--text3)">· ${e.notes}</span>` : ''}
+          </div>
+        </div>
+        <div class="li-right">
+          <div class="li-amount warn">${fmt(e.amount)}</div>
+          <div class="li-date">${fmtD(e.expenseDate)}</div>
+          ${isAdmin() ? `<button class="btn btn-danger btn-sm" onclick="deleteExpense(${e.id})">🗑️ Delete</button>` : ''}
+        </div>
+      </div>`).join('')
+    : '<div class="empty"><div class="empty-icon">📭</div><div class="empty-title">No expenses</div><div class="empty-sub">Add the first expense for this project</div></div>';
+}
+
+async function saveExpense() {
+  if (!checkProject()) return;
+  const desc = document.getElementById('e-desc').value.trim();
+  const amt  = parseFloat(document.getElementById('e-amt').value) || 0;
+  if (!desc || !amt) { toast('Enter description and amount', 'error'); return; }
+  const res = await api('POST', '/projects/' + AP.id + '/expenses', {
+    description: desc, amount: amt,
+    category: document.getElementById('e-cat').value,
+    expenseDate: document.getElementById('e-date').value,
+    paidTo: document.getElementById('e-paid').value,
+    billNumber: document.getElementById('e-bill').value,
+    notes: document.getElementById('e-notes').value
+  });
+  if (res) {
+    closeModal('exp-modal');
+    ['e-desc','e-amt','e-paid','e-bill','e-notes'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('e-date').value = today();
+    await loadExpenses();
+    toast('✅ Expense saved', 'success');
+  }
+}
+
+async function deleteExpense(id) {
+  if (!isAdmin()) return toast('Admin only', 'error');
+  if (!confirm('Delete this expense?')) return;
+  await api('DELETE', '/projects/' + AP.id + '/expenses/' + id);
+  await loadExpenses();
+  toast('Expense deleted');
+}
+</script>
+</body>
+</html>

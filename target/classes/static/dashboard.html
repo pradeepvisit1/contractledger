@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ContractLedger · Dashboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hlogo">
+    <div class="hlogo-icon">🏗️</div>
+    <div>
+      <div class="hlogo-text">ContractLedger</div>
+      <div class="hproj" id="hproj">No project selected</div>
+    </div>
+  </div>
+  <div class="hact">
+    <button class="ibtn" onclick="openModal('proj-modal')" title="Switch Project">🏗️</button>
+    <div class="uchip" id="uchip" onclick="doLogout()"></div>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar"></nav>
+  <main class="main">
+    <div class="page-header">
+      <div class="page-title">Dashboard</div>
+      <div class="page-sub" id="proj-sub">Select a project to view summary</div>
+    </div>
+
+    <!-- No project warning -->
+    <div class="proj-banner" id="no-proj-banner" style="display:none">
+      <div class="proj-banner-icon">⚠️</div>
+      <div>
+        <div class="proj-banner-text">No project selected</div>
+        <div style="font-size:12px;color:var(--warn)">Click 🏗️ in the header to create or select a project</div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div id="dash-content" style="display:none">
+      <div class="sgrid">
+        <div class="stat-card green">
+          <div class="stat-lbl">Total Invested</div>
+          <div class="stat-val green" id="d-invested">₹0</div>
+          <div class="stat-sub">Total capital raised</div>
+        </div>
+        <div class="stat-card warn">
+          <div class="stat-lbl">Total Expenses</div>
+          <div class="stat-val warn" id="d-expenses">₹0</div>
+          <div class="stat-sub">Expenses + Wages</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-lbl">Net Balance</div>
+          <div class="stat-val" id="d-balance">₹0</div>
+          <div class="stat-sub">Invested − Spent</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-lbl">Active Workers</div>
+          <div class="stat-val blue" id="d-workers">0</div>
+          <div class="stat-sub">Registered on project</div>
+        </div>
+      </div>
+
+      <!-- Budget progress -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Budget Utilisation</div>
+          <div style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text2)" id="d-pct">0%</div>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-bar" id="d-bar" style="width:0%"></div>
+        </div>
+        <div style="font-size:12px;color:var(--text3);margin-top:8px" id="d-bar-txt"></div>
+      </div>
+
+      <!-- Recent expenses -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Recent Expenses</div>
+          <a href="expenses.html" style="font-size:12px;color:var(--accent);text-decoration:none;font-weight:600">View all →</a>
+        </div>
+        <div id="d-recent"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Mobile tabs -->
+<div class="mob-tabs"><div class="mob-tabs-inner" id="mob-tabs-inner"></div></div>
+
+<!-- Project Modal -->
+<div class="mo" id="proj-modal">
+  <div class="modal">
+    <div class="modal-title">🏗️ Projects</div>
+    <div class="form-group"><label>Project Name</label><input class="fi" id="pn" placeholder="e.g. Pungunuru Canal Phase-1"></div>
+    <div class="form-row">
+      <div><label>Type</label>
+        <select class="fsel" id="ptype">
+          <option value="CANAL">Canal</option><option value="ROAD">Road</option>
+          <option value="BUILDING">Building</option><option value="BRIDGE">Bridge</option><option value="OTHER">Other</option>
+        </select>
+      </div>
+      <div><label>Location</label><input class="fi" id="ploc" placeholder="Village / Mandal"></div>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="createProject()">+ Create Project</button>
+    <hr class="divider">
+    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">Select Active Project</div>
+    <div id="proj-list-modal"></div>
+    <button class="btn btn-ghost btn-full" style="margin-top:12px" onclick="closeModal('proj-modal')">Close</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+<script>
+if (!requireAuth()) {}
+
+window.addEventListener('DOMContentLoaded', async () => {
+  renderHeader('dashboard');
+  loadProjectsIntoModal();
+  if (AP) {
+    document.getElementById('proj-sub').textContent = AP.name + (AP.type ? ' · ' + AP.type : '');
+    await loadDash();
+  } else {
+    document.getElementById('no-proj-banner').style.display = 'flex';
+  }
+});
+
+async function createProject() {
+  const name = document.getElementById('pn').value.trim();
+  if (!name) { toast('Enter project name', 'error'); return; }
+  const res = await api('POST', '/projects', {
+    name,
+    type: document.getElementById('ptype').value,
+    location: document.getElementById('ploc').value.trim()
+  });
+  if (res) {
+    saveProject(res);
+    document.getElementById('pn').value = '';
+    document.getElementById('ploc').value = '';
+    await loadProjectsIntoModal();
+    toast('✅ Project created', 'success');
+    window.location.reload();
+  }
+}
+
+async function loadDash() {
+  const p = await api('GET', '/projects/' + AP.id);
+  if (!p) return;
+  document.getElementById('dash-content').style.display = 'block';
+  const grand = Number(p.grandExpenses || 0);
+
+  document.getElementById('d-invested').textContent = fmt(p.totalInvested);
+  document.getElementById('d-expenses').textContent = fmt(grand);
+
+  const bal = document.getElementById('d-balance');
+  bal.textContent = fmt(p.balance);
+  bal.className = 'stat-val ' + (p.balance >= 0 ? 'green' : 'danger');
+
+  const workers = await api('GET', '/projects/' + AP.id + '/workers') || [];
+  document.getElementById('d-workers').textContent = workers.length;
+
+  const pct = p.totalInvested > 0 ? Math.min(100, Math.round(grand / p.totalInvested * 100)) : 0;
+  document.getElementById('d-pct').textContent = pct + '%';
+  const bar = document.getElementById('d-bar');
+  bar.style.width = pct + '%';
+  bar.className = 'progress-bar ' + (pct < 60 ? 'green' : pct < 85 ? 'warn' : 'danger');
+  document.getElementById('d-bar-txt').textContent = fmt(grand) + ' spent of ' + fmt(p.totalInvested) + ' invested';
+
+  const exps = await api('GET', '/projects/' + AP.id + '/expenses') || [];
+  document.getElementById('d-recent').innerHTML = exps.length
+    ? exps.slice(0, 5).map(e => `
+      <div class="list-item">
+        <div class="li-left">
+          <div class="li-title"><span class="cdot" style="background:${CAT_COLOR[e.category]}"></span>${e.description}</div>
+          <div class="li-sub">${e.paidTo || '—'} &nbsp;·&nbsp; <span class="badge ${CAT_BADGE[e.category]}">${e.category}</span></div>
+        </div>
+        <div class="li-right">
+          <div class="li-amount warn">${fmt(e.amount)}</div>
+          <div class="li-date">${fmtD(e.expenseDate)}</div>
+        </div>
+      </div>`).join('')
+    : '<div class="empty"><div class="empty-icon">📭</div><div class="empty-title">No expenses yet</div></div>';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ContractLedger · Investors</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hlogo">
+    <div class="hlogo-icon">🏗️</div>
+    <div>
+      <div class="hlogo-text">ContractLedger</div>
+      <div class="hproj" id="hproj">No project selected</div>
+    </div>
+  </div>
+  <div class="hact">
+    <button class="ibtn" onclick="openModal('proj-modal')" title="Switch Project">🏗️</button>
+    <div class="uchip" id="uchip" onclick="doLogout()"></div>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar"></nav>
+  <main class="main">
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div class="page-title">💰 Investors</div>
+        <div class="page-sub">Capital contributors for this project</div>
+      </div>
+      <button class="btn btn-primary" onclick="openModal('inv-modal')">+ Add Investor</button>
+    </div>
+
+    <div class="sgrid">
+      <div class="stat-card green">
+        <div class="stat-lbl">Total Capital</div>
+        <div class="stat-val green" id="inv-total">₹0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-lbl">Investors Count</div>
+        <div class="stat-val blue" id="inv-count">0</div>
+      </div>
+    </div>
+
+    <div id="inv-list"></div>
+  </main>
+</div>
+
+<div class="mob-tabs"><div class="mob-tabs-inner" id="mob-tabs-inner"></div></div>
+
+<!-- Add Investor Modal -->
+<div class="mo" id="inv-modal">
+  <div class="modal">
+    <div class="modal-title">Add Investor</div>
+    <div class="form-group"><label>Full Name *</label><input class="fi" id="i-name" placeholder="Investor name"></div>
+    <div class="form-row">
+      <div><label>Phone</label><input class="fi" id="i-phone" placeholder="Mobile number" type="tel"></div>
+      <div><label>Amount (₹) *</label><input class="fi" id="i-amt" placeholder="0" type="number"></div>
+    </div>
+    <div class="form-group"><label>Investment Date</label><input class="fi" id="i-date" type="date"></div>
+    <div class="form-group"><label>Notes</label><textarea class="fta" id="i-notes" placeholder="Remarks..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('inv-modal')">Cancel</button>
+      <button class="btn btn-primary" style="flex:2" onclick="saveInvestor()">Save Investor</button>
+    </div>
+  </div>
+</div>
+
+<!-- Project Modal -->
+<div class="mo" id="proj-modal">
+  <div class="modal">
+    <div class="modal-title">🏗️ Switch Project</div>
+    <div id="proj-list-modal"></div>
+    <button class="btn btn-ghost btn-full" style="margin-top:12px" onclick="closeModal('proj-modal')">Close</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="app.js"></script>
+<script>
+if (!requireAuth()) {}
+
+window.addEventListener('DOMContentLoaded', async () => {
+  renderHeader('investors');
+  loadProjectsIntoModal();
+  document.getElementById('i-date').value = today();
+  if (AP) await loadInvestors();
+});
+
+async function loadInvestors() {
+  if (!checkProject()) return;
+  const list = await api('GET', '/projects/' + AP.id + '/investors') || [];
+  const total = list.reduce((a, b) => a + Number(b.amount || 0), 0);
+  document.getElementById('inv-total').textContent = fmt(total);
+  document.getElementById('inv-count').textContent = list.length;
+
+  document.getElementById('inv-list').innerHTML = list.length
+    ? list.map(i => `
+      <div class="list-item">
+        <div class="li-left">
+          <div class="li-title">👤 ${i.name}</div>
+          <div class="li-sub">${i.phone || '—'} &nbsp;·&nbsp; Invested: ${fmtD(i.investmentDate)}</div>
+          ${i.notes ? `<div class="li-meta">${i.notes}</div>` : ''}
+          <div style="margin-top:8px">
+            <div class="progress-wrap" style="width:180px;max-width:100%">
+              <div class="progress-bar green" style="width:${i.sharePercent || 0}%"></div>
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px">${i.sharePercent || 0}% share of total capital</div>
+          </div>
+        </div>
+        <div class="li-right">
+          <div class="li-amount green">${fmt(i.amount)}</div>
+          <div class="li-date">${fmtD(i.createdAt)}</div>
+          ${isAdmin() ? `<button class="btn btn-danger btn-sm" onclick="deleteInvestor(${i.id})">🗑️ Delete</button>` : ''}
+        </div>
+      </div>`).join('')
+    : '<div class="empty"><div class="empty-icon">💰</div><div class="empty-title">No investors yet</div><div class="empty-sub">Add the first capital contributor</div></div>';
+}
+
+async function saveInvestor() {
+  if (!checkProject()) return;
+  const name = document.getElementById('i-name').value.trim();
+  const amt  = parseFloat(document.getElementById('i-amt').value) || 0;
+  if (!name || !amt) { toast('Enter name and amount', 'error'); return; }
+  const res = await api('POST', '/projects/' + AP.id + '/investors', {
+    name, phone: document.getElementById('i-phone').value,
+    amount: amt, investmentDate: document.getElementById('i-date').value,
+    notes: document.getElementById('i-notes').value
+  });
+  if (res) {
+    closeModal('inv-modal');
+    ['i-name','i-phone','i-amt','i-notes'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('i-date').value = today();
+    await loadInvestors();
+    toast('✅ Investor saved', 'success');
+  }
+}
+
+async function deleteInvestor(id) {
+  if (!isAdmin()) return toast('Admin only', 'error');
+  if (!confirm('Delete this investor?')) return;
+  await api('DELETE', '/projects/' + AP.id + '/investors/' + id);
+  await loadInvestors();
+  toast('Investor deleted');
+}
+</script>
+</body>
+</html>
